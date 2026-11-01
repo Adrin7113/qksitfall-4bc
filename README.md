@@ -263,3 +263,7 @@ Run the Python command above to execute the actual quantum circuit.
 ## Comparative quantum evidence
 
 Run `.venv/bin/python scripts/benchmark_quantum.py` to regenerate five deterministic cases and 150 measured workflows independently of website builds. The saved report compares unchanged QAOA with native SciPy/HiGHS MILP and structured random sampling. Current optimum hits: QAOA 49/50, MILP 50/50, structured random 50/50; MILP has lower median elapsed time in every case. No quantum advantage is demonstrated. See [protocol and interpretation](docs/quantum-benchmark.md) for timing boundaries, source freshness and reproduction commands.
+
+## Consolidated simulation notebook
+
+Open [the EV scheduling validation notebook](notebooks/ev-scheduling-validation.ipynb) for the booking and final-charge fairness models, derivations, exact audits, local Qiskit simulation and optional fake-device noise test. The notebook is self-contained and includes executed outputs. See [notebook setup and limits](notebooks/README.md) to reproduce it. No real QPU jobs are submitted.
