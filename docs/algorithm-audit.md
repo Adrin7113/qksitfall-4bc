@@ -107,3 +107,7 @@ power cap is explicitly rejected; no power transfers between module budgets.
 No quantum advantage or improvement over a real charger's existing dynamic
 sharing policy has been demonstrated. Those require matched, realistic
 benchmarks and hardware control verification.
+
+## Current model validity and scaling
+
+The consolidated notebook now includes booking and final-charge fairness. The [model-validity and scaling review](model-validity-and-scaling-review.md) distinguishes exact mathematical/circuit checks from performance and physical validation, derives assignment/aggregate classical baselines, and documents hypothetical resource accounting without a quantum-savings claim. The older completion-time benchmark remains a separate model.
