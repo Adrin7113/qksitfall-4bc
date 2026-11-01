@@ -114,6 +114,23 @@ class OptionGenerationTests(unittest.TestCase):
 
 
 class ExactSolverTests(unittest.TestCase):
+    def test_supplied_vehicle_power_ceiling_changes_capacity_and_duration(self):
+        scenario = small_scenario()
+        scenario["vehicles"][0]["max_power_kw"] = 5
+        self.assertEqual(generate_options(scenario)["options"]["A"], [])
+        scenario["stations"][0]["power_kw"] = 50
+        scenario["vehicles"][0]["max_power_kw"] = 20
+        booking = generate_options(scenario)["options"]["A"][0]
+        self.assertEqual(booking["charging_power_kw"], 20)
+        self.assertEqual(booking["charging_duration_minutes"], 30)
+
+    def test_invalid_vehicle_power_ceiling_is_rejected(self):
+        for value in (0, -1, True, float("nan")):
+            scenario = small_scenario()
+            scenario["vehicles"][0]["max_power_kw"] = value
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                generate_options(scenario)
+
     def test_hand_calculated_single_car_optimum(self):
         scenario = small_scenario()
         result = solve_exact(scenario, generate_options(scenario)["options"])

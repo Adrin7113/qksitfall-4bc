@@ -76,7 +76,7 @@ function render(){
   $('#result-label').textContent=mode==='optimal'?'Both cars get a slot.':'Charger conflict. B has no slot.';
   $('#strategy-note').textContent=mode==='greedy'?'A’s individually cheapest score still chooses North early. B needs the same slot. A request that looks best alone cannot serve both drivers.':best.bookings[0].station_id==='South'?'At this waiting weight, A’s shorter wait at South is worth the higher bill. B keeps North’s early slot.':'A’s individual favorite blocks B. Giving North’s early slot to B leaves both drivers a booking.';
   $('#reason-copy').textContent=mode==='greedy'?'The first choice looks good for A, but gives B no feasible session. A complete solution must check the combination, including shared charger capacity.':'A can use either station in either hour. B can only use North at 08:00. Looking at the whole schedule makes room for both.';
-  renderTimeline();renderLot();renderQuantum();renderCircuit(FIXTURE,weight);if($('#penalty-value'))$('#penalty-value').textContent=number(safePenalty(currentModel.options));
+  renderTimeline();renderLot();renderQuantum();renderCircuit(FIXTURE,weight);renderEquations(FIXTURE,weight);if($('#penalty-value'))$('#penalty-value').textContent=number(safePenalty(currentModel.options));
 }
 
 $('#weight').addEventListener('input',event=>{interaction();weight=Number(event.target.value);currentModel=scheduleAt(FIXTURE,weight);selectedBits=bitString(currentModel.best.bookings);render();});

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
-import {Script} from 'node:vm';
+import {Script,runInNewContext} from 'node:vm';
 import {scheduleAt,energyOf,encodedStates,safePenalty} from './model.mjs';
 
 const here=dirname(fileURLToPath(import.meta.url));
@@ -52,3 +52,17 @@ for(const name of ['index.html','index-light.html']){
   assert.equal(html.includes('<!--SCRIPT-->'),false);
 }
 console.log('Passed: Python baseline, alternate preference, tie order, 102 QUBO comparisons, 3232 Python/QUBO/Ising energy comparisons, real Qiskit gate records, and emitted JavaScript syntax.');
+
+const viewer=runInNewContext(readFileSync(join(here,'circuit.js'),'utf8')+';({layoutCircuit,makeCircuitSvg})',{document:{getElementById:()=>null}});
+for(const record of fixture.quantum.records){
+ const {placed,stages}=viewer.layoutCircuit(record);
+ assert.equal(placed.length,44);assert.equal(stages.length,6);
+ for(let i=1;i<stages.length;i++)assert.ok(stages[i].start>stages[i-1].end,'Stage boundaries must be preserved');
+ const wireColumns=Array(5).fill(-1);
+ for(const op of placed){for(const q of op.qubits){assert.ok(op.column>wireColumns[q]);wireColumns[q]=op.column;}}
+ const svg=viewer.makeCircuitSvg(fixture,record);
+ assert.equal((svg.match(/data-operation="rzz"/g)||[]).length,14);
+ assert.equal((svg.match(/data-source-index=/g)||[]).length,44);
+ assert.equal((svg.match(/>ZZ<\/text>/g)||[]).length,14,'One shared label per two-qubit gate');
+}
+console.log('Passed: all 101 circuit layouts preserve six stages, per-wire order, measurements and one symbol per RZZ gate.');

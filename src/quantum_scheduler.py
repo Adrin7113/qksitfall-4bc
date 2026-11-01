@@ -77,7 +77,7 @@ def build_qubo(scenario, options, penalty=None):
 
 def _check_bits(model, bits):
     if len(bits) != len(model["variables"]) or any(bit not in (0, 1) for bit in bits):
-        raise ValueError("Provide one binary value per booking, in qubit order")
+        raise ValueError("Provide one binary value per variable, in qubit order")
 
 
 def qubo_value(model, bits):
@@ -149,8 +149,11 @@ def build_qaoa_circuit(ising, layers=2):
 
 
 def decode_bits(model, bits):
-    """Check measured bookings independently of the penalty function."""
+    """Check measured bookings or charging plans independently of penalties."""
     _check_bits(model, bits)
+    if model.get("kind") == "shared_power":
+        from src.shared_power_scheduler import decode_shared_power_bits
+        return decode_shared_power_bits(model, bits)
     reasons = []
     for vehicle_id, indices in model["groups"].items():
         if sum(bits[i] for i in indices) != 1:
@@ -208,21 +211,29 @@ def summarize_counts(model, counts):
             "reason": None,
             "schedule": best["schedule"],
             "bits": best["bits"],
-            "total_electricity_cost_rupees": sum(
+            "total_electricity_cost_rupees": None if model.get("kind") == "shared_power" else sum(
                 booking["electricity_cost_rupees"] for booking in best["schedule"]
             ),
             "total_waiting_minutes": sum(booking["waiting_minutes"] for booking in best["schedule"]),
             "total_score": sum(booking["score"] for booking in best["schedule"]),
         })
+    if model.get("kind") == "shared_power":
+        from src.shared_power_scheduler import shared_power_metrics
+        result.update({"total_flow_minutes": None, "average_flow_minutes": None,
+                       "last_completion_minute": None})
+        if feasible:
+            result.update(shared_power_metrics(model, result["schedule"]))
     return result
 
 
-def solve_qaoa(model, *, layers=2, shots=4096, iterations=160, restarts=3, seed=7, progress=None):
+def solve_qaoa(model, *, layers=2, shots=4096, iterations=160, restarts=3, seed=7, progress=None, max_qubits=20):
     """Train a QAOA circuit on Aer, then sample its best observed parameters.
 
     COBYLA adjusts angles, not vehicle bookings. Training uses Aer Estimator's
     exact expectation (precision=0), without finite-shot noise. `shots` controls
     the final measured circuit only. `iterations` budgets evaluations per restart.
+    Both booking and shared-power models use the same cost-circuit machinery.
+    The configurable max_qubits guard limits exponential statevector allocation.
     """
     for label, value in (("layers", layers), ("shots", shots), ("iterations", iterations), ("restarts", restarts)):
         _positive_integer(value, label)
@@ -230,6 +241,10 @@ def solve_qaoa(model, *, layers=2, shots=4096, iterations=160, restarts=3, seed=
         raise ValueError("iterations must be at least 2*layers + 2 for COBYLA")
     if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
         raise ValueError("seed must be a nonnegative integer")
+    _positive_integer(max_qubits, "max_qubits")
+    if len(model["variables"]) > max_qubits:
+        raise ValueError(f"Model needs {len(model['variables'])} qubits; local simulation limit is {max_qubits}. "
+                         "Use a smaller model or explicitly increase max_qubits after checking memory needs.")
 
     ising = qubo_to_ising(model)
     circuit = build_qaoa_circuit(ising, layers)

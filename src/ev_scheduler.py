@@ -68,6 +68,8 @@ def validate_scenario(scenario):
         ), label)
         _number(vehicle["battery_capacity_kwh"], f"{label} battery capacity", positive=True)
         _number(vehicle["consumption_kwh_per_km"], f"{label} consumption", positive=True)
+        if "max_power_kw" in vehicle:
+            _number(vehicle["max_power_kw"], f"{label} max_power_kw", positive=True)
         current = vehicle["current_charge_percent"]
         target = vehicle["target_charge_percent"]
         _number(current, f"{label} current charge")
@@ -157,7 +159,11 @@ def generate_options(scenario):
             station_id = station["id"]
             travel = scenario["travel"][vehicle_id][station_id]
             journey = calculate_journey(vehicle, travel)
-            charging_duration = journey["charging_energy_kwh"] / station["power_kw"] * 60
+            # Legacy inputs without a vehicle ceiling assume the car accepts
+            # station-rated power. Honor a supplied ceiling in both timing and
+            # slot-capacity checks, as in the shared-power model.
+            charging_power = min(station["power_kw"], vehicle.get("max_power_kw", station["power_kw"]))
+            charging_duration = journey["charging_energy_kwh"] / charging_power * 60
 
             for slot in scenario["slots"]:
                 # Each rejected combination explains all of its broken rules.
@@ -172,7 +178,7 @@ def generate_options(scenario):
                     reasons.append("Charging would finish after the vehicle deadline")
 
                 slot_hours = (slot["end_minute"] - slot["start_minute"]) / 60
-                energy_available = station["power_kw"] * slot_hours
+                energy_available = charging_power * slot_hours
                 if journey["charging_energy_kwh"] > energy_available + EPSILON:
                     reasons.append("Charger cannot deliver the required energy within this slot")
 
@@ -199,6 +205,7 @@ def generate_options(scenario):
                     "end_minute": slot["end_minute"],
                     **journey,
                     "charging_duration_minutes": charging_duration,
+                    "charging_power_kw": charging_power,
                     "completion_minute": completion,
                     "waiting_minutes": waiting_minutes,
                     "electricity_cost_rupees": electricity_cost,

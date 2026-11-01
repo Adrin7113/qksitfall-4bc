@@ -1,5 +1,20 @@
 # Quantum EV charging with Qiskit QAOA
 
+The [algorithm audit](docs/algorithm-audit.md) records correctness fixes,
+reproducible stress checks, and the still-planned interface between station
+selection and the local shared-power scheduler.
+
+For the **two-gun shared-power module problem**, see the
+[QUBO formulation and worked example](docs/shared-power-qubo.md). It supports
+multiple modules, vehicle power limits, changing power allocations, and an
+arrival-to-completion time objective. Run it separately from the original
+booking example below:
+
+```sh
+.venv/bin/python shared_power_demo.py
+.venv/bin/python shared_power_demo.py --qaoa
+```
+
 For the full learning document with typeset equations, worked derivations, a
 glossary, and exercises with answers, open the
 [LaTeX project](quantum-ev-learning-guide/main.tex) or the
@@ -244,3 +259,7 @@ QAOA workflow. The browser page itself does not run QAOA or access quantum
 hardware; its exported baseline still comes from the classical reference solver.
 Run the Python command above to execute the actual quantum circuit.
 
+
+## Comparative quantum evidence
+
+Run `.venv/bin/python scripts/benchmark_quantum.py` to regenerate five deterministic cases and 150 measured workflows independently of website builds. The saved report compares unchanged QAOA with native SciPy/HiGHS MILP and structured random sampling. Current optimum hits: QAOA 49/50, MILP 50/50, structured random 50/50; MILP has lower median elapsed time in every case. No quantum advantage is demonstrated. See [protocol and interpretation](docs/quantum-benchmark.md) for timing boundaries, source freshness and reproduction commands.
