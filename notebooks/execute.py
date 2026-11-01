@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory(prefix='ev-jupyter-') as temp:
     client=NotebookClient(nb,timeout=180,kernel_name='ev-sim',resources={'metadata':{'path':str(temp)}})
     executed=client.execute()
     outputs='\n'.join(o.get('text','') for c in executed.cells if c.cell_type=='code' for o in c.get('outputs',[]) if o.output_type=='stream')
-    for expected in ['MATHEMATICAL_MODELS_VERIFIED','QISKIT_CIRCUITS_VERIFIED','BROWSER_VERIFIED','FAKE_DEVICE_SIMULATION_VERIFIED','EV_NOTEBOOK_VERIFIED']:
+    for expected in ['MATHEMATICAL_MODELS_VERIFIED','QISKIT_CIRCUITS_VERIFIED','BROWSER_VERIFIED','FAKE_DEVICE_SIMULATION_VERIFIED','CLASSICAL_BASELINES_VERIFIED','SCALING_ACCOUNTING_VERIFIED','EV_NOTEBOOK_VERIFIED']:
         assert expected in outputs,expected
     code_cells=[c for c in executed.cells if c.cell_type=='code']
     assert all(c.execution_count is not None for c in code_cells)

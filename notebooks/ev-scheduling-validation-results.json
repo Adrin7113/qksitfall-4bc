@@ -3383,5 +3383,275 @@
       "00000": 36
     },
     "valid_shots": 44
-  }
+  },
+  "classical_baselines": [
+    {
+      "id": "booking",
+      "result": {
+        "option_indices": [
+          1,
+          4
+        ],
+        "schedule": [
+          {
+            "vehicle_id": "A",
+            "station_id": "North",
+            "slot_id": "late",
+            "start_minute": 540,
+            "end_minute": 600,
+            "arrival_minute": 475,
+            "arrival_energy_kwh": 14.6,
+            "charging_energy_kwh": 10.4,
+            "completion_minute": 596.7272727272727,
+            "electricity_cost_rupees": 10.4,
+            "waiting_minutes": 65,
+            "reasons": []
+          },
+          {
+            "vehicle_id": "B",
+            "station_id": "North",
+            "slot_id": "early",
+            "start_minute": 480,
+            "end_minute": 540,
+            "arrival_minute": 475,
+            "arrival_energy_kwh": 5.8,
+            "charging_energy_kwh": 9.2,
+            "completion_minute": 530.1818181818181,
+            "electricity_cost_rupees": 18.4,
+            "waiting_minutes": 5,
+            "reasons": []
+          }
+        ],
+        "score": 46.3,
+        "method": "exact minimum-cost assignment",
+        "scope": "from prevalidated single-resource appointments"
+      },
+      "median_ms": 0.00595799065195024,
+      "repetitions": 21,
+      "timing_scope": "warm exact solve from prevalidated appointments; shared physical preprocessing excluded"
+    },
+    {
+      "id": "booking-less-waiting",
+      "result": {
+        "option_indices": [
+          2,
+          4
+        ],
+        "schedule": [
+          {
+            "vehicle_id": "A",
+            "station_id": "South",
+            "slot_id": "early",
+            "start_minute": 480,
+            "end_minute": 540,
+            "arrival_minute": 480,
+            "arrival_energy_kwh": 14.0,
+            "charging_energy_kwh": 11.0,
+            "completion_minute": 540.0,
+            "electricity_cost_rupees": 33.0,
+            "waiting_minutes": 0,
+            "reasons": []
+          },
+          {
+            "vehicle_id": "B",
+            "station_id": "North",
+            "slot_id": "early",
+            "start_minute": 480,
+            "end_minute": 540,
+            "arrival_minute": 475,
+            "arrival_energy_kwh": 5.8,
+            "charging_energy_kwh": 9.2,
+            "completion_minute": 530.1818181818181,
+            "electricity_cost_rupees": 18.4,
+            "waiting_minutes": 5,
+            "reasons": []
+          }
+        ],
+        "score": 56.4,
+        "method": "exact minimum-cost assignment",
+        "scope": "from prevalidated single-resource appointments"
+      },
+      "median_ms": 0.0054580013966187835,
+      "repetitions": 21,
+      "timing_scope": "warm exact solve from prevalidated appointments; shared physical preprocessing excluded"
+    },
+    {
+      "id": "fairness",
+      "result": {
+        "units": [
+          2,
+          6
+        ],
+        "schedule": [
+          [
+            50,
+            0
+          ],
+          [
+            0,
+            50
+          ],
+          [
+            0,
+            50
+          ],
+          [
+            0,
+            50
+          ]
+        ],
+        "final": [
+          80.83333333333333,
+          76.875
+        ],
+        "minimum": 76.875,
+        "total": 50.0,
+        "cost": 400.0,
+        "objective_evaluations": 4,
+        "feasible_total_pairs": 30,
+        "method": "exact two-car aggregate allocation"
+      },
+      "median_ms": 0.03466599446255714,
+      "repetitions": 21,
+      "timing_scope": "warm exact totals solve including rational input checks and schedule reconstruction"
+    },
+    {
+      "id": "fairness-slow-b",
+      "result": {
+        "units": [
+          3,
+          4
+        ],
+        "schedule": [
+          [
+            25,
+            25
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            25,
+            25
+          ],
+          [
+            0,
+            25
+          ]
+        ],
+        "final": [
+          91.25,
+          61.25
+        ],
+        "minimum": 61.25,
+        "total": 43.75,
+        "cost": 350.0,
+        "objective_evaluations": 4,
+        "feasible_total_pairs": 20,
+        "method": "exact two-car aggregate allocation"
+      },
+      "median_ms": 0.03420800203457475,
+      "repetitions": 21,
+      "timing_scope": "warm exact totals solve including rational input checks and schedule reconstruction"
+    }
+  ],
+  "resource_projections": {
+    "scope": "accounting only; no measured or predicted quantum savings",
+    "fairness_encoding": [
+      {
+        "cars": 2,
+        "fast_cars": 2,
+        "slots": 4,
+        "choices_per_slot": 6,
+        "bits_per_slot": 3,
+        "logical_qubits": 12,
+        "encoded_states": 4096,
+        "statevector_bytes": 65536,
+        "float64_cost_table_bytes": 32768
+      },
+      {
+        "cars": 2,
+        "fast_cars": 2,
+        "slots": 24,
+        "choices_per_slot": 6,
+        "bits_per_slot": 3,
+        "logical_qubits": 72,
+        "encoded_states": 4722366482869645213696,
+        "statevector_bytes": 75557863725914323419136,
+        "float64_cost_table_bytes": 37778931862957161709568
+      },
+      {
+        "cars": 100,
+        "fast_cars": 100,
+        "slots": 4,
+        "choices_per_slot": 5151,
+        "bits_per_slot": 13,
+        "logical_qubits": 52,
+        "encoded_states": 4503599627370496,
+        "statevector_bytes": 72057594037927936,
+        "float64_cost_table_bytes": 36028797018963968
+      },
+      {
+        "cars": 1000,
+        "fast_cars": 1000,
+        "slots": 96,
+        "choices_per_slot": 501501,
+        "bits_per_slot": 19,
+        "logical_qubits": 1824,
+        "encoded_states": 1198704376915095279387480343045361671730644368150573240512773432879842058669565997124016627990207681634233906420719287022894744202442929991306355413307837823268031111266003603547180584046167209105227837310389339858737925377319347088123771981133389542283310696478430941023973246538586112505661167115912895464136639548800025432244070448878784999863781781108587654102719628420246301525634694817150787901841270830731811250688192935437465855092435396362301529334901659687228894334871948311489560575158416231944061329427495951844584329607105423498822025216,
+        "statevector_bytes": 19179270030641524470199685488725786747690309890409171848204374926077472938713055953984266047843322906147742502731508592366315907239086879860901686612925405172288497780256057656754889344738675345683645396966229437739806806037109553409980351698134232676532971143654895056383571944617377800090578673854606327426186232780800406915905127182060559997820508497737402465643514054723940824410155117074412606429460333291708980011011086966999453681478966341796824469358426554995662309357951172983832969202534659711104981270839935229513349273713686775981152403456,
+        "float64_cost_table_bytes": 9589635015320762235099842744362893373845154945204585924102187463038736469356527976992133023921661453073871251365754296183157953619543439930450843306462702586144248890128028828377444672369337672841822698483114718869903403018554776704990175849067116338266485571827447528191785972308688900045289336927303163713093116390400203457952563591030279998910254248868701232821757027361970412205077558537206303214730166645854490005505543483499726840739483170898412234679213277497831154678975586491916484601267329855552490635419967614756674636856843387990576201728
+      }
+    ],
+    "booking_encoding": [
+      {
+        "cars": 2,
+        "stations": 2,
+        "slots": 2,
+        "maximum_option_qubits": 8
+      },
+      {
+        "cars": 100,
+        "stations": 10,
+        "slots": 24,
+        "maximum_option_qubits": 24000
+      },
+      {
+        "cars": 1000,
+        "stations": 100,
+        "slots": 96,
+        "maximum_option_qubits": 9600000
+      }
+    ],
+    "shot_sensitivity": [
+      {
+        "assumed_optimum_probability": 0.00244140625,
+        "shots_for_95_percent_hit": 1226
+      },
+      {
+        "assumed_optimum_probability": 0.00886,
+        "shots_for_95_percent_hit": 337
+      },
+      {
+        "assumed_optimum_probability": 0.001,
+        "shots_for_95_percent_hit": 2995
+      },
+      {
+        "assumed_optimum_probability": 1e-06,
+        "shots_for_95_percent_hit": 2995731
+      },
+      {
+        "assumed_optimum_probability": 1e-09,
+        "shots_for_95_percent_hit": 2995732273
+      }
+    ],
+    "caveats": [
+      "Logical qubits are not physical-qubit estimates.",
+      "Statevector RAM is simulator storage, not the RAM of the best classical solver.",
+      "Hypothetical success probabilities are not predictions as fleet size grows.",
+      "The fixed50kW budget remains a physical bottleneck as cars/docks are added."
+    ]
+  },
+  "claim_boundary": "finite mathematical/circuit validity only; physical validity and quantum savings unproven"
 }

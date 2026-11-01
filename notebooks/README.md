@@ -24,7 +24,7 @@ The earlier eight-qubit completion-time sharing model is a distinct objective an
 
 ## Recorded validation
 
-- All 14 code cells executed with zero errors.
+- All 18 code cells executed with zero errors.
 - Booking: 3,232 exact physical/direct-penalty/QUBO/Ising comparisons across 101 waiting weights.
 - Fairness: 409,600 state/scenario checks across 100 scenarios, including complete objective ordering and an independent classical reference.
 - Four experiments at three angle settings each: Qiskit circuits and the included JavaScript statevector engine agree within about 3.01e-16 probability error in the recorded run.
@@ -36,3 +36,7 @@ Saved counts are evidence of one run, not prescribed answers. Optimizer results 
 ## Why a notebook instead of an IBM cloud project?
 
 IBM [retired its cloud simulators](https://quantum.cloud.ibm.com/docs/en/guides/local-simulators) and documents Aer/fake backends as [local testing](https://quantum.cloud.ibm.com/docs/en/guides/local-testing-mode). Composer provides circuit visualizations and QASM files; a currently supported hosted, shareable Python mock-project service was not verified. The notebook can be shared through the repository or uploaded to another Jupyter host. See [IBM's QAOA workflow](https://quantum.cloud.ibm.com/docs/en/tutorials/quantum-approximate-optimization-algorithm) and the [Colab sharing/runtime explanation](https://research.google.com/colaboratory/faq.html).
+
+## Exact classical baselines and hypothetical scale
+
+The notebook includes exact assignment and O(T) two-car totals solvers, warm local timing scopes, representation-size calculations and shot sensitivity. `classical_and_scaling.py` exposes those routines, and `test_classical_and_scaling.py` cross-checks them against the encoded reference models and independent small graph/reachability enumerations. Run `uv run --project notebooks python notebooks/test_classical_and_scaling.py`. These counts and local timings are not a forecast of quantum savings. See the [review](../docs/model-validity-and-scaling-review.md).
