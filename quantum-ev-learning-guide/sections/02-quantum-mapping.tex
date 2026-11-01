@@ -1,0 +1,301 @@
+\clearpage
+\section{Quantum vocabulary, introduced from zero}\label{sec:vocabulary}
+\subsection{A bit, a qubit, a gate, and a measurement}
+A classical bit has value $0$ or $1$. A qubit has two distinguished states,
+written $\ket{0}$ and $\ket{1}$. The vertical bar and angle bracket form a
+\emph{ket}: notation for a state vector. They do not mean absolute value here.
+In column-vector notation,
+\begin{equation}
+\ket{0}=\begin{pmatrix}1\\0\end{pmatrix},\qquad
+\ket{1}=\begin{pmatrix}0\\1\end{pmatrix}.
+\end{equation}
+A general pure one-qubit state is
+\begin{equation}\label{eq:one-qubit-state}
+\ket{\psi}=a\ket{0}+b\ket{1},\qquad |a|^2+|b|^2=1.
+\end{equation}
+The Greek letter $\psi$ (``psi'') names the state. The complex numbers $a,b$ are
+\emph{amplitudes}. Measurement in this basis produces ordinary bit $0$ with
+probability $|a|^2$, or bit $1$ with probability $|b|^2$. The squared magnitude
+is why an amplitude is not itself a probability.
+
+A \emph{gate} is an allowed transformation of the state, represented by a
+unitary matrix. A \emph{circuit} is a sequence of gates. Measurement converts
+the final state into a classical outcome. A \emph{shot} is one preparation,
+execution, and measurement of the circuit.
+
+\subsection{Superposition and phase}
+The state
+\begin{equation}
+\ket{+}=\frac{\ket{0}+\ket{1}}{\sqrt 2}
+\end{equation}
+has equal measurement probabilities. Its two amplitudes have magnitude
+$1/\sqrt2$, whose square is $1/2$. The square root and normalization matter.
+
+An amplitude can be written $a=r e^{\ii\phi}$, where $r\ge0$ is its magnitude,
+$\phi$ is its phase angle in radians, and $\ii^2=-1$. Then $|a|^2=r^2$.
+An arrow in a plane is a useful picture: length represents magnitude and
+direction represents phase. Changing only direction does not change length.
+This is a mathematical picture, not a physical arrow in the chip.
+
+Relative phases matter when later operations combine amplitude contributions.
+Contributions may reinforce or cancel; this is \emph{interference}. For example,
+$(\ket0+\ket1)/\sqrt2$ and $(\ket0-\ket1)/\sqrt2$ give the same probabilities
+if measured immediately, but a subsequent Hadamard gate distinguishes them.
+Appendix~\ref{app:math} works this out explicitly.
+
+\subsection{Many qubits and the meaning of a bit string}
+With $n$ qubits, a state is
+\begin{equation}\label{eq:n-state}
+\ket{\psi}=\sum_{\boldsymbol{x}\in\{0,1\}^n}a_{\boldsymbol{x}}\ket{\boldsymbol{x}},
+\qquad \sum_{\boldsymbol{x}}|a_{\boldsymbol{x}}|^2=1.
+\end{equation}
+Here $\ket{\boldsymbol{x}}$ denotes the basis state in which qubit $q_i$ stores
+bit $x_i$. The logical vector is ordered $(x_0,\ldots,x_{n-1})$; Qiskit's
+\emph{displayed strings} reverse that order, as explained later. There are
+$2^n$ possible outcomes: $2^5=32$ in our direct five-qubit encoding. One shot
+returns one outcome, not a readable list of all 32 amplitudes.
+
+An \emph{entangled} state cannot be written as a product of independent
+single-qubit states. The RZZ interactions in our cost circuit can generate
+entanglement. Entanglement by itself does not certify an optimization benefit.
+
+\subsection{Operators, eigenvalues, and two different meanings of H}
+An \emph{operator} is a linear transformation of state vectors, often written
+as a matrix. If an operator $\widehat A$ acts on a state $\ket u$ as
+\begin{equation}
+\widehat A\ket u=\lambda\ket u,
+\end{equation}
+then $\ket u$ is an \emph{eigenvector} and $\lambda$ its \emph{eigenvalue}.
+The output points along the same vector, multiplied by a number. This gives a
+precise meaning to saying that a cost operator ``associates a score'' with a
+definite booking string.
+
+We distinguish the Hadamard gate $H_{\mathrm{Had}}$ from the cost Hamiltonian
+$\HC$. They share a conventional letter but are different objects. A
+Hamiltonian is a Hermitian operator; a gate is unitary. We use the Hamiltonian
+to construct gates rather than applying its generally nonunitary matrix as a gate.
+
+\section{Checkpoint 3a: translate binary costs into an Ising operator}\label{sec:ising}
+\subsection{Pauli Z and the identity operator}
+The identity operator $\Id$ leaves every state unchanged. The Pauli Z operator is
+\begin{equation}
+\widehat Z=\begin{pmatrix}1&0\\0&-1\end{pmatrix},\qquad
+\widehat Z\ket0=+\ket0,\qquad \widehat Z\ket1=-\ket1.
+\end{equation}
+Its eigenvalues on the two bit states are $+1$ and $-1$. Applying Z to a
+superposition changes the sign of the $\ket1$ amplitude; it does not flip a bit.
+The operator $\widehat Z_i$ acts on qubit $i$ and as the identity on other qubits.
+
+The classical sign $z_i$ associated with a definite bit is
+\begin{equation}
+z_i=(-1)^{x_i},\qquad x_i=\frac{1-z_i}{2}.
+\end{equation}
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+Booking bit $x_i$ & Sign $z_i$ & $(1-z_i)/2$\\
+\midrule
+0 & $+1$ & 0\\
+1 & $-1$ & 1\\
+\bottomrule
+\end{tabular}
+\end{center}
+The quantum counterpart of the binary variable is the projector
+\begin{equation}\label{eq:projector}
+\widehat x_i=\frac{\Id-\widehat Z_i}{2}.
+\end{equation}
+It has eigenvalue zero on bit $0$ and one on bit $1$. Keeping $x_i$, $z_i$, and
+$\widehat Z_i$ distinct prevents a common confusion: a bit value is not a matrix.
+
+\subsection{One cost term, step by step}
+Consider only $f(x)=20x$. It assigns scores zero and twenty. Substituting gives
+\begin{equation}
+20x=10-10z,\qquad \HF=10\Id-10\widehat Z.
+\end{equation}
+Thus $\HF\ket0=0\ket0$ and $\HF\ket1=20\ket1$. The scoring function is
+unchanged; the same scores are now eigenvalues of an operator. In this context,
+``energy'' means optimization score, not the EV's battery energy in kWh.
+
+\subsection{Translate every linear and pair term}
+For the expanded QUBO in Equation~\eqref{eq:expanded-qubo},
+\begin{align}
+L_i x_i &\longmapsto \frac{L_i}{2}\Id-\frac{L_i}{2}\widehat Z_i,\\
+Q_{ij}x_i x_j &\longmapsto \frac{Q_{ij}}4
+\left(\Id-\widehat Z_i-\widehat Z_j+\widehat Z_i\widehat Z_j\right).
+\end{align}
+All terms can be collected as
+\begin{equation}\label{eq:full-hamiltonian}
+\HF=C_I\Id+\HC,\qquad
+\HC=\sum_i h_i\widehat Z_i+\sum_{i<j}J_{ij}\widehat Z_i\widehat Z_j,
+\end{equation}
+with coefficients
+\begin{align}
+C_I&=C_0+\frac12\sum_iL_i+\frac14\sum_{i<j}Q_{ij},\label{eq:offset}\\
+h_i&=-\frac{L_i}{2}-\frac14\sum_{j\ne i}Q_{\{i,j\}},\label{eq:h}\\
+J_{ij}&=\frac{Q_{ij}}4.\label{eq:j}
+\end{align}
+In Equation~\eqref{eq:h}, $Q_{\{i,j\}}$ means the stored coefficient for the
+unordered pair, using its smaller index first. An absent pair contributes zero.
+This is precisely the bookkeeping in \code{qubo_to_ising()}.
+
+The \emph{Ising form} uses signs $\pm1$ and their pair products. The name comes
+from a model of interacting spins in physics. We use its mathematical structure;
+no knowledge of physical magnets is required to formulate our application.
+
+\subsection{The sample's actual operator}
+The calculated single-qubit coefficients are
+\begin{equation}
+(h_0,h_1,h_2,h_3,h_4)
+=(-83.0875,-70.975,-74.15,-76.15,4.5875).
+\end{equation}
+Every pair within $\{0,1,2,3\}$ has $J_{ij}=28.825$, and $J_{04}=14.4125$.
+All other pair coefficients vanish. The offset is $C_I=227.7125$.
+\begin{equation}\label{eq:actual-ising}
+\begin{aligned}
+\HC={}&-83.0875\widehat Z_0-70.975\widehat Z_1-74.15\widehat Z_2\\
+&-76.15\widehat Z_3+4.5875\widehat Z_4\\
+&+28.825\!\!\sum_{0\le i<j\le3}\widehat Z_i\widehat Z_j
++14.4125\widehat Z_0\widehat Z_4.
+\end{aligned}
+\end{equation}
+Appendix~\ref{app:numeric} verifies these numbers against the original QUBO.
+The Qiskit class \code{SparsePauliOp} stores this weighted sum without constructing
+a full dense $32\times32$ matrix. ``Sparse'' means representing the listed terms;
+it does not mean that the simulator's full statevector stops growing with $2^n$.
+
+\subsection{Offset and normalization}
+The circuit uses the normalized nonconstant cost
+\begin{equation}\label{eq:normalized}
+s=\max\bigl(\{|h_i|\}_i\cup\{|J_{ij}|\}_{i<j}\bigr),\qquad
+\widetilde H_C=\frac{\HC}{s}.
+\end{equation}
+For this sample, $s=83.0875$. The implementation uses $s=1$ if all coefficients
+vanish. Positive scaling and adding constants preserve the ordering of scores.
+The reported expectation is restored by
+\begin{equation}\label{eq:restore-score}
+\mathbb E[f]=s\,\expect{\widetilde H_C}+C_I.
+\end{equation}
+The optimizer receives $\expect{\widetilde H_C}$; the printed history uses
+Equation~\eqref{eq:restore-score}. These are different numerical scales for the
+same optimization landscape.
+
+\section{Checkpoint 3b: build the actual QAOA gates}\label{sec:gates}
+\subsection{Initialize with Hadamard gates}
+The single-qubit Hadamard gate is
+\begin{equation}
+H_{\mathrm{Had}}=\frac1{\sqrt2}\begin{pmatrix}1&1\\1&-1\end{pmatrix},
+\qquad H_{\mathrm{Had}}\ket0=\ket+.
+\end{equation}
+Starting with all qubits in zero, apply one H gate per qubit:
+\begin{equation}
+\ket{\psi_0}=\ket+^{\otimes n}
+=\frac1{\sqrt{2^n}}\sum_{\boldsymbol{x}}\ket{\boldsymbol{x}}.
+\end{equation}
+The tensor product $\otimes$ combines systems. Initially each five-bit outcome
+has probability $1/32$. Initialization does not know which schedule is good.
+\begin{lstlisting}[language=Python]
+circuit.h(range(circuit.num_qubits))
+\end{lstlisting}
+
+\subsection{Cost operations change phases}
+For one layer the cost operation is
+\begin{equation}\label{eq:cost-unitary}
+U_C(\gamma)=\exp\!\left(-\ii\gamma\widetilde H_C\right).
+\end{equation}
+The real number $\gamma$ (``gamma'') is adjustable. If
+$\HC\ket{\boldsymbol{x}}=E_C(\boldsymbol{x})\ket{\boldsymbol{x}}$, then
+\begin{equation}
+U_C(\gamma)\ket{\boldsymbol{x}}
+=e^{-\ii\gamma E_C(\boldsymbol{x})/s}\ket{\boldsymbol{x}}.
+\end{equation}
+The phase factor has magnitude one. It changes the amplitude's direction, not
+its magnitude, so the cost layer alone leaves computational-basis probabilities
+unchanged. A higher score does not automatically become a lower probability.
+
+All our Z and ZZ terms commute, meaning their operator products can be reordered
+without changing the result. Consequently Equation~\eqref{eq:cost-unitary}
+factors exactly into one gate per term; no approximation from splitting these
+commuting terms is required.
+
+\subsection{Why RZ and RZZ have these angles}
+Qiskit's rotation conventions are\cite{rz,rzz}
+\begin{align}
+\RZ(\theta)&=e^{-\ii\theta\widehat Z/2},\\
+\RZZ(\theta)&=e^{-\ii\theta\widehat Z_i\widehat Z_j/2}.
+\end{align}
+The symbol $\theta$ (``theta'') is an angle in radians. One full turn is $2\pi$
+radians; $\pi/2$ radians is $90^\circ$. Matching the exponents gives
+\begin{align}
+e^{-\ii\gamma h_i\widehat Z_i/s}
+&=R_{Z,i}\!\left(\frac{2\gamma h_i}{s}\right),\\
+e^{-\ii\gamma J_{ij}\widehat Z_i\widehat Z_j/s}
+&=R_{ZZ,ij}\!\left(\frac{2\gamma J_{ij}}s\right).
+\end{align}
+This is the source of the factor of two in the code. There is no new vehicle
+rule hidden in the gate angle; it is a convention of the gate definition.
+\begin{lstlisting}[language=Python]
+circuit.rz(2 * gamma[layer] * coefficient / scale, qubit)
+circuit.rzz(2 * gamma[layer] * coefficient / scale, i, j)
+\end{lstlisting}
+For example, $h_0=-s$, so the first qubit's RZ angle is simply $-2\gamma$.
+
+\subsection{Mixing turns phase differences into probability changes}
+Pauli X flips the two basis states:
+\begin{equation}
+\widehat X=\begin{pmatrix}0&1\\1&0\end{pmatrix},\qquad
+\widehat X\ket0=\ket1,\quad \widehat X\ket1=\ket0.
+\end{equation}
+The mixer Hamiltonian and its operation are
+\begin{equation}
+\widehat H_M=\sum_i\widehat X_i,\qquad
+U_M(\beta)=e^{-\ii\beta\widehat H_M}
+=\prod_i R_{X,i}(2\beta).
+\end{equation}
+The real number $\beta$ (``beta'') controls mixing. RX combines the amplitudes
+for basis states differing in one bit. Depending on their phases, contributions
+reinforce or cancel. Useful angles must be learned; arbitrary mixing can make
+the distribution worse.
+\begin{lstlisting}[language=Python]
+for qubit in range(circuit.num_qubits):
+    circuit.rx(2 * beta[layer], qubit)
+\end{lstlisting}
+
+\subsection{A one-qubit demonstration before five-qubit scheduling}
+Consider again $f(x)=20x$. Ignore normalization for this small derivation, so
+the nonconstant cost is $-10\widehat Z$. Choose $\gamma=\pi/40$ and
+$\beta=-\pi/4$. The corresponding rotations are $\RZ(-\pi/2)$ and
+$\RX(-\pi/2)$.
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Circuit so far & $\Pr(0)$ & $\Pr(1)$\\
+\midrule
+$H_{\mathrm{Had}}$ & $1/2$ & $1/2$\\
+$\RZ(-\pi/2)H_{\mathrm{Had}}$ & $1/2$ & $1/2$\\
+$\RX(-\pi/2)\RZ(-\pi/2)H_{\mathrm{Had}}$ & $1$ & $0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+These angles are selected for the demonstration. They are not a general solution
+for the EV instance. Appendix~\ref{app:math} supplies the amplitude calculation.
+
+\subsection{Layers, gate order, and the constant offset}
+For $p$ layers, begin with $\ket{\psi_0}$ and repeat
+\begin{equation}\label{eq:qaoa-recursion}
+\ket{\psi_\ell}=U_M(\beta_\ell)U_C(\gamma_\ell)\ket{\psi_{\ell-1}},
+\qquad \ell=1,\ldots,p.
+\end{equation}
+Operators on the right act first: cost, then mixing. With $p=2$ there are four
+adjustable angles. Python indexes layers from zero, so mathematical
+$\gamma_1$ is \code{gamma[0]}. The Hadamard initialization appears only once.
+An \emph{ansatz} is this chosen parameterized circuit structure.
+
+Including the offset $C_I\Id$ would multiply the whole state by
+$e^{-\ii\gamma C_I/s}$, a common or \emph{global} phase. It cancels from all
+measurement probabilities. Omitting it saves work without losing the cost
+information needed to rank outcomes. We retain $C_I$ to restore reported scores.
+
+\begin{checkpoint}
+After H and the cost layer, why can all five-bit probabilities still be $1/32$?
+Which operation allows phase differences to influence those probabilities?
+\end{checkpoint}

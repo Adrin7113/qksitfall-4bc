@@ -1,0 +1,281 @@
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+\color{ink}
+\vspace*{12mm}
+{\large\sffamily LEARNING NOTES \quad / \quad QKSITFALL}\par
+\vspace{16mm}
+{\Huge\bfseries Quantum EV Charging}\par
+\vspace{4mm}
+{\LARGE From booking rules to QAOA}\par
+\vspace{10mm}
+\rule{\textwidth}{0.8pt}
+\vspace{5mm}
+{\large A software engineer's guide to the actual Python implementation}\par
+\vspace{10mm}
+This document explains the complete project README, including the mathematical
+steps hidden inside the implementation. It begins with ordinary booking data,
+builds the optimization objective, translates it into quantum operations, and
+explains what the measurements mean.
+
+No previous quantum mechanics is assumed. Symbols are introduced before use;
+longer derivations, a glossary, and exercises with answers appear in the appendices.
+\vfill
+\textbf{Execution model}\par
+Qiskit QAOA executed on a local Aer simulator. Classical Python prepares the
+problem and adjusts circuit angles. No IBM API key is used by the current command.
+\vspace{8mm}
+\textbf{Code snapshot}\par
+1 November 2026. Qiskit 2.6.1; Qiskit Aer 0.18.2; SciPy 1.18.1.
+The numerical examples follow \code{main.py} and \code{src/quantum_scheduler.py}.
+\end{titlepage}
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+\section{How to use this guide}
+Read Sections~\ref{sec:physical}--\ref{sec:qubo} first if the scheduling model or
+penalty expressions are unclear. Read Sections~\ref{sec:vocabulary}--\ref{sec:gates}
+slowly for the transition from bits to gates. Then run the program while reading
+Sections~\ref{sec:training}--\ref{sec:experiments}.
+
+The implemented workflow is
+\begin{equation*}
+\begin{gathered}
+\text{vehicle, station, and travel data}
+\longrightarrow \text{possible bookings}
+\longrightarrow \text{binary objective}\\
+\longrightarrow \text{quantum cost operator}
+\longrightarrow \text{QAOA circuit}
+\longrightarrow \text{measured booking bits}.
+\end{gathered}
+\end{equation*}
+The quantum circuit participates in searching for a schedule. It does not
+calculate road distances, parse vehicle data, or invent the scheduling rules.
+
+Run these commands from the repository root:
+\begin{lstlisting}
+.venv/bin/python main.py
+.venv/bin/python main.py --layers 1 --show-circuit
+.venv/bin/python -m unittest discover -s tests -v
+\end{lstlisting}
+The main entry point prints six quantum checkpoints. The document follows those
+checkpoints, with additional foundations where they are needed.
+
+\begin{keyidea}
+There are three different objects to keep separate: a real booking, the binary
+variable that selects it, and the qubit used to represent that variable.
+\end{keyidea}
+
+\section{The charging problem before quantum computing}\label{sec:physical}
+\subsection{The input scenario}
+We coordinate two cars and two stations. Each station has one charging port
+with power $11\,\mathrm{kW}$. Each reservation occupies an entire one-hour slot:
+08:00--09:00 or 09:00--10:00.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Vehicle property & Car A & Car B\\
+\midrule
+Battery capacity & $50\,\mathrm{kWh}$ & $50\,\mathrm{kWh}$\\
+Initial charge & $30\%$ & $12\%$\\
+Target charge & $50\%$ & $30\%$\\
+Consumption & $0.2\,\mathrm{kWh/km}$ & $0.2\,\mathrm{kWh/km}$\\
+Available to depart & 07:45 & 07:50\\
+Charging deadline & 10:00 & 09:00\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Journey & A--North & A--South & B--North & B--South\\
+\midrule
+Distance (km) & 2 & 5 & 1 & 20\\
+Duration (min) & 10 & 15 & 5 & 30\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Electricity at North costs Rs~2/kWh in the early slot and Rs~1/kWh in the late
+slot. South costs Rs~3/kWh and Rs~2/kWh respectively. ``Rs'' denotes rupees;
+we keep monetary amounts separate from dimensionless optimization score points.
+
+\subsection{Energy, power, and arrival}
+Let $B_v$ be vehicle $v$'s battery capacity in kWh; $s_v$ and $t_v$ its initial
+and target state-of-charge \emph{fractions}; $d_{vs}$ its distance to station $s$;
+and $e_v$ its consumption in kWh/km. The Python inputs store percentages, so
+$30\%$ is entered as \code{30} and divided by $100$ in the calculation.
+\begin{align}
+E_v^{\mathrm{initial}} &= B_v s_v,\\
+E_{vs}^{\mathrm{drive}} &= d_{vs}e_v,\\
+E_{vs}^{\mathrm{arrival}} &= E_v^{\mathrm{initial}}-E_{vs}^{\mathrm{drive}},\\
+D_{vs} &= B_v t_v-E_{vs}^{\mathrm{arrival}}.
+\end{align}
+Here $D_{vs}$ is the charging energy required \emph{at that station}. A farther
+station can require more charging, because the drive reduces the arrival energy.
+
+For A driving to North:
+\begin{align*}
+E_A^{\mathrm{initial}} &= 50(0.30)=15.0\,\mathrm{kWh},\\
+E_{A,N}^{\mathrm{drive}} &= 2(0.2)=0.4\,\mathrm{kWh},\\
+E_{A,N}^{\mathrm{arrival}} &=15.0-0.4=14.6\,\mathrm{kWh},\\
+D_{A,N} &=50(0.50)-14.6=10.4\,\mathrm{kWh}.
+\end{align*}
+If station power is $W_s$ kW, ideal charging duration is
+\begin{equation}
+\tau_{vs}=60\frac{D_{vs}}{W_s}\quad\text{minutes}.
+\end{equation}
+Thus A needs $60(10.4/11)\approx56.73$ minutes at North. Energy in kWh is an
+amount; power in kW is an amount delivered per hour.
+
+\subsection{Individually feasible bookings}
+The function \code{generate_options()} examines every vehicle--station--slot
+combination. A booking survives if all four checks pass:
+\begin{enumerate}
+\item Arrival battery is at least the reserve, $0.05B_v$ by default.
+\item Arrival time is no later than the selected slot's start.
+\item Starting then, actual charging completes no later than the vehicle deadline.
+\item The required energy fits within the slot's charging capacity.
+\end{enumerate}
+For B at South, arrival energy would be $6-20(0.2)=2\,\mathrm{kWh}$, below the
+$2.5\,\mathrm{kWh}$ reserve. B also cannot take North's late slot because charging
+would finish after its 09:00 deadline. Only North's early slot survives for B.
+
+For booking $i$, define electricity bill $b_i$, waiting time $w_i$ in minutes,
+and booking score $c_i$:
+\begin{equation}\label{eq:booking-cost}
+b_i=D_{vs}\,r_{s,k},\qquad
+w_i=T_k^{\mathrm{start}}-T_{vs}^{\mathrm{arrival}},\qquad
+c_i=b_i+\lambda w_i,
+\end{equation}
+where $r_{s,k}$ is the electricity tariff and $\lambda=0.25$ is the waiting weight.
+Numerically, each rupee contributes one score point and each waiting minute
+contributes $0.25$ points. The score is a preference, not a physical law.
+
+\section{Checkpoint 1: turn possible bookings into bits}
+The five surviving options are assigned consecutive indices by
+\code{build_qubo()}. Each $x_i\in\{0,1\}$ selects one booking. Its corresponding
+qubit is $q_i$.
+\begin{center}
+\begin{tabular}{clrrr}
+\toprule
+Bit & Booking & Bill (Rs) & Wait (min) & $c_i$\\
+\midrule
+$x_0$ & A, North, 08:00 & 20.80 & 5 & 22.05\\
+$x_1$ & A, North, 09:00 & 10.40 & 65 & 26.65\\
+$x_2$ & A, South, 08:00 & 33.00 & 0 & 33.00\\
+$x_3$ & A, South, 09:00 & 22.00 & 60 & 37.00\\
+$x_4$ & B, North, 08:00 & 18.40 & 5 & 19.65\\
+\bottomrule
+\end{tabular}
+\end{center}
+All five variables appear in the objective, but a valid schedule selects only
+one booking for each car. The vector
+\begin{equation}
+\boldsymbol{x}=(0,1,0,0,1)
+\end{equation}
+selects A at North late and B at North early. Their reservations occur at
+different times. We plan both cars jointly because their options share resources.
+
+The groups are built from data:
+\begin{lstlisting}[language=Python]
+groups = {"A": [0, 1, 2, 3], "B": [4]}
+\end{lstlisting}
+This displayed dictionary is the sample result, not a hardcoded assumption in
+the builder. Adding cars or options changes the groups and the number of qubits.
+B's forced booking could be fixed classically, but the current example retains
+its qubit to make the rule application uniform.
+
+\section{Checkpoint 2: build the QUBO objective}\label{sec:qubo}
+QUBO stands for \emph{quadratic unconstrained binary optimization}. ``Binary''
+means bits, ``quadratic'' means terms involving at most pairs of bits, and
+``unconstrained'' means the scheduling rules have been incorporated as penalties
+inside the objective. It does not mean the scheduling problem has no rules.
+
+\subsection{Two reusable scheduling rules}
+Let $\mathcal V$ be the vehicle set, $G_v$ the indices of bookings belonging to
+vehicle $v$, and $\mathcal C$ the set of unordered pairs of bookings for different
+vehicles that occupy the same station and slot. The general objective is
+\begin{equation}\label{eq:general-qubo}
+f(\boldsymbol{x})=
+\underbrace{\sum_i c_i x_i}_{\text{booking scores}}
++\underbrace{P\sum_{v\in\mathcal V}\left(\sum_{i\in G_v}x_i-1\right)^2}_{\text{one booking per car}}
++\underbrace{P\sum_{(i,j)\in\mathcal C}x_i x_j}_{\text{no shared charger conflicts}}.
+\end{equation}
+The sum over a car counts its selected bookings. Its penalty is zero exactly
+when that count equals one. A conflict product is one only if both conflicting
+bookings are selected. These templates apply to any number of cars and options
+under the current single-port, single-slot-session model.
+
+\begin{center}
+\begin{tabular}{crrrr}
+\toprule
+Selected bookings for one car & 0 & 1 & 2 & 3\\
+\midrule
+Exactly-one penalty & $P$ & $0$ & $P$ & $4P$\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The actual sample equation}
+Here $G_A=\{0,1,2,3\}$, $G_B=\{4\}$, and $\mathcal C=\{(0,4)\}$. Therefore
+\begin{align}\label{eq:sample-qubo}
+f(\boldsymbol{x})={}&22.05x_0+26.65x_1+33x_2+37x_3+19.65x_4\notag\\
+&+P(x_0+x_1+x_2+x_3-1)^2\notag\\
+&+P(x_4-1)^2+Px_0x_4.
+\end{align}
+The first penalty belongs to A; the second belongs to B; the last belongs to
+their shared North/early resource. Giving B more options changes its group sum.
+Another conflict creates another pair term automatically.
+
+For the valid vector $(0,1,0,0,1)$ every penalty is zero:
+\begin{equation}
+f(0,1,0,0,1)=26.65+19.65=46.30.
+\end{equation}
+For $(1,0,0,0,1)$ both cars receive a booking, but both use North early:
+\begin{equation}
+f(1,0,0,0,1)=22.05+19.65+P=41.70+P.
+\end{equation}
+The per-car penalties alone would not detect this charger conflict.
+
+\subsection{Choosing the penalty without solving the schedule}
+All booking scores are nonnegative. Define the upper bound
+\begin{equation}\label{eq:penalty-bound}
+U=\sum_{v\in\mathcal V}\max_{i\in G_v}c_i,
+\qquad P=U+1.
+\end{equation}
+Any valid schedule selects one option per car and therefore scores at most $U$.
+Any invalid bit string incurs at least $P$ in penalties plus nonnegative booking
+cost. If a valid schedule exists, no invalid string can be the global minimizer.
+This statement is about the objective, not a promise that QAOA finds its minimum.
+
+For the sample, $U=37+19.65=56.65$ and $P=57.65$. A custom smaller penalty may
+make invalid strings attractive. Increasing $P$ far beyond necessity can make
+the differences between valid operating costs harder to resolve during training.
+
+\subsection{How the builder stores the equation}
+Using $x_i^2=x_i$ for bits, the builder expands every group penalty:
+\begin{equation}\label{eq:group-expansion}
+P\left(\sum_{i\in G_v}x_i-1\right)^2
+=P-P\sum_{i\in G_v}x_i
++2P\sum_{\substack{i<j\\i,j\in G_v}}x_i x_j.
+\end{equation}
+The stored representation is
+\begin{equation}\label{eq:expanded-qubo}
+f(\boldsymbol{x})=C_0+\sum_i L_i x_i+\sum_{i<j}Q_{ij}x_i x_j.
+\end{equation}
+The code names are \code{constant}, \code{linear}, and \code{quadratic}.
+Here $C_0=P|\mathcal V|$, each $L_i=c_i-P$, each same-car pair gets $2P$, and
+each different-car resource conflict gets $P$. Negative $L_i$ values are a
+consequence of expanding penalties; they are not negative electricity bills.
+
+\begin{checkpoint}
+If a third car has bookings $x_5$ and $x_6$, write its exactly-one penalty.
+If $x_1$ and $x_5$ share a charger and slot, write their conflict penalty.
+Answers appear in Appendix~\ref{app:answers}.
+\end{checkpoint}

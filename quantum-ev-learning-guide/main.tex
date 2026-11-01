@@ -1,0 +1,46 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=24mm,headheight=15pt]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs,tabularx,longtable,array}
+\usepackage{xcolor,microtype,fancyhdr,enumitem,listings}
+\usepackage{hyperref}
+\definecolor{ink}{HTML}{183042}
+\definecolor{accent}{HTML}{166A70}
+\definecolor{codebg}{HTML}{F2F5F7}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=accent,pdftitle={Quantum EV Charging: From Booking Rules to QAOA},pdfauthor={Learning notes for the QksitFall project}}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{ink}{Quantum EV Charging}}
+\fancyhead[R]{\small Learning guide}
+\fancyfoot[L]{\small QksitFall project}
+\fancyfoot[R]{\thepage}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{2em}
+\setcounter{tocdepth}{2}
+\numberwithin{equation}{section}
+\setlist[itemize]{itemsep=2pt,topsep=4pt}
+\setlist[enumerate]{itemsep=3pt,topsep=4pt}
+\lstset{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{codebg},frame=single,rulecolor=\color{codebg},breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false,aboveskip=8pt,belowskip=8pt}
+\newcommand{\ket}[1]{\lvert #1\rangle}
+\newcommand{\bra}[1]{\langle #1\rvert}
+\newcommand{\expect}[1]{\langle #1\rangle}
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\Id}{\mathbb{I}}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\RZ}{R_{Z}}
+\newcommand{\RZZ}{R_{ZZ}}
+\newcommand{\RX}{R_{X}}
+\newcommand{\HC}{\widehat H_C}
+\newcommand{\HF}{\widehat H_f}
+\newenvironment{keyidea}{\begin{quote}\color{ink}\textbf{Key idea.}\ }{\end{quote}}
+\newenvironment{checkpoint}{\begin{quote}\textbf{Check your understanding.}\ }{\end{quote}}
+\begin{document}
+\input{sections/01-foundations}
+\input{sections/02-quantum-mapping}
+\input{sections/03-training-and-experiments}
+\appendix
+\input{sections/04-appendices}
+\end{document}

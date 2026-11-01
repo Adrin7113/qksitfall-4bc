@@ -1,0 +1,387 @@
+\section{Notation and glossary}\label{app:glossary}
+Use this appendix whenever a symbol interrupts your reading. An index identifies
+a particular object; it does not mean multiplication. Hats distinguish operators
+from ordinary numbers. Bold symbols collect several numbers into a vector.
+
+\renewcommand{\arraystretch}{1.12}
+\begin{longtable}{@{}p{0.23\textwidth}>{\raggedright\arraybackslash}p{0.71\textwidth}@{}}
+\toprule
+Symbol or term & Meaning in this project\\
+\midrule
+\endfirsthead
+\toprule
+Symbol or term & Meaning in this project\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+$x_i$ & A binary decision: select booking $i$ when one; leave it unselected when zero.\\
+$\boldsymbol{x}$ & Logical vector $(x_0,\ldots,x_{n-1})$ describing a complete proposed schedule.\\
+$q_i$ & Qubit carrying booking bit $i$ when measured.\\
+$n$ & Number of booking variables/qubits in the direct encoding.\\
+$\mathcal V$, $G_v$ & Vehicle set and booking-index set for vehicle $v$.\\
+$\mathcal C$ & Unordered pairs of different-car bookings sharing a station and slot.\\
+$c_i$, $\lambda$ & Booking score and waiting weight, with default $\lambda=0.25$ points/min.\\
+$P$, $U$ & Constraint penalty and bound on any feasible schedule's operating score.\\
+$C_0,L_i,Q_{ij}$ & Constant, linear, and upper-triangular pair coefficients in the expanded QUBO.\\
+$z_i$ & Numerical sign $(-1)^{x_i}$: $+1$ for bit zero, $-1$ for bit one.\\
+$\widehat Z_i$ & Pauli Z operator acting on qubit $i$; a matrix, not a binary variable.\\
+$\widehat X_i$ & Pauli X operator acting on qubit $i$; interchanges basis states zero and one.\\
+$\Id$ & Identity operator; leaves a vector unchanged.\\
+$h_i,J_{ij}$ & Coefficients multiplying Z and ZZ in the Ising cost operator.\\
+$C_I$ & Constant identity coefficient after converting to Ising form; called \code{offset}.\\
+$\HF$ & Full cost operator $C_I\Id+\HC$; its eigenvalue on a booking basis state is $f(\boldsymbol{x})$.\\
+$\HC$ & Nonconstant cost Hamiltonian used to construct gates.\\
+$s,\widetilde H_C$ & Positive normalization scale and normalized nonconstant cost $\HC/s$.\\
+$H_{\mathrm{Had}}$ & Hadamard gate. Different from the cost Hamiltonian despite the shared letter H.\\
+$\ket\psi$, $\bra\psi$ & State vector (ket) and conjugate-transposed row vector (bra).\\
+$a_{\boldsymbol{x}}$ & Complex amplitude of outcome $\boldsymbol{x}$; its squared magnitude is a probability.\\
+$\langle u\mid v\rangle$ & Inner product of vectors, yielding a complex scalar.\\
+$\bra\psi\widehat A\ket\psi$ & Expectation of operator $\widehat A$ in normalized state $\ket\psi$.\\
+$\ii$ & Imaginary unit, $\ii^2=-1$; distinct from an italic index $i$.\\
+$\phi$, $\theta$ & Phase or rotation angles, measured in radians.\\
+$\gamma_\ell$, $\beta_\ell$ & Cost and mixer parameters for layer $\ell$, pronounced gamma and beta.\\
+$p$, $\ell$ & Number of QAOA layers and the current layer index.\\
+$U_C,U_M$ & Cost and mixer gate operations, each a unitary operator.\\
+$\RX,\RZ,\RZZ$ & X rotation, Z rotation, and two-qubit ZZ rotation.\\
+$\otimes$ & Tensor product: combines state spaces or operators for multiple qubits.\\
+$\sum$, $\prod$ & Add or multiply the indexed quantities. In operator products the rightmost acts first.\\
+$\Pr$, $\mathbb E$ & Probability and expectation (probability-weighted mean).\\
+Basis state & A definite bit string, such as all qubits zero.\\
+Superposition & A state expressed as a linear combination of basis states.\\
+Phase & Direction of a complex amplitude; relative phases can affect later interference.\\
+Global phase & The same unit-magnitude factor multiplying every amplitude; does not affect measurement probabilities.\\
+Interference & Reinforcement or cancellation when operations combine amplitude contributions.\\
+Eigenvalue & Number by which an operator multiplies a particular eigenvector.\\
+Hamiltonian & A Hermitian operator. Here it represents optimization costs, not battery energy.\\
+Ground state & An eigenstate with the smallest eigenvalue of a Hamiltonian.\\
+Ansatz & The selected family of parameterized circuits; here repeated cost/mixer layers.\\
+Shot & One circuit preparation, execution, and measurement.\\
+Estimator & Computes an observable's expectation for a circuit. Our Aer estimator uses ideal precision zero.\\
+Statevector & The array of $2^n$ complex amplitudes used by the ideal simulator.\\
+COBYLA & Classical derivative-free optimizer that changes circuit angles.\\
+\end{longtable}
+\renewcommand{\arraystretch}{1}
+
+\clearpage
+\section{Mathematical background and gate calculations}\label{app:math}
+\subsection{Complex numbers and magnitudes}
+A complex number is $a=u+\ii v$ with real $u,v$. Its conjugate is
+$a^*=u-\ii v$, and
+\begin{equation}
+|a|^2=a^*a=u^2+v^2.
+\end{equation}
+Euler's identity writes a unit-length phase factor as
+\begin{equation}
+e^{\ii\phi}=\cos\phi+\ii\sin\phi,\qquad |e^{\ii\phi}|=1.
+\end{equation}
+Thus multiplying an amplitude by $e^{\ii\phi}$ changes its direction but not its
+measurement probability. Multiplying \emph{every} amplitude by the same phase
+leaves every future measurement probability unchanged under the same subsequent
+operations, since the common scalar factors through those linear operations.
+
+For a normalized state $\ket\psi$, $\langle\psi\mid\psi\rangle=1$. Its bra is
+the transpose with all entries conjugated. A Hermitian matrix satisfies
+$A^\dagger=A$ and has real eigenvalues. A unitary matrix satisfies
+$U^\dagger U=\Id$ and preserves normalization. Hamiltonians and gates serve
+different roles even though both are operators.
+
+\subsection{Relative phase can be revealed by a later gate}
+Define
+\begin{equation}
+\ket+=\frac{\ket0+\ket1}{\sqrt2},\qquad
+\ket-=\frac{\ket0-\ket1}{\sqrt2}.
+\end{equation}
+Both have immediate measurement probabilities $1/2,1/2$. But
+\begin{equation}
+H_{\mathrm{Had}}\ket+=\ket0,\qquad
+H_{\mathrm{Had}}\ket-=\ket1.
+\end{equation}
+For the first case, the new zero amplitude is $(1+1)/2=1$ and the new one
+amplitude is $(1-1)/2=0$. For the second, those reinforce/cancel roles reverse.
+This demonstrates interference without claiming that phase alone changes the
+probabilities of an immediate computational-basis measurement.
+
+\subsection{Tensor products and Qiskit's basis order}
+Two independent states combine as $\ket a\otimes\ket b$, usually abbreviated
+$\ket{ab}$. Their joint vector has four entries. For two qubits, conventional
+Qiskit displayed basis order is
+\begin{equation}
+\ket{q_1q_0}\in\{\ket{00},\ket{01},\ket{10},\ket{11}\}.
+\end{equation}
+Hence $\widehat Z_0=\Id\otimes\widehat Z$ and
+$\widehat Z_1=\widehat Z\otimes\Id$ in that order. For a logical vector
+$\boldsymbol{x}=(x_0,\ldots,x_{n-1})$, its statevector array index is
+\begin{equation}
+k=\sum_{i=0}^{n-1}2^i x_i.
+\end{equation}
+For $(0,1,0,0,1)$, $k=2+16=18$, displayed in binary as \code{10010}.
+
+\subsection{Matrix forms of the rotations}
+For an angle $\theta$, the gates used here are
+\begin{align}
+\RZ(\theta)&=
+\begin{pmatrix}e^{-\ii\theta/2}&0\\0&e^{+\ii\theta/2}\end{pmatrix},\\
+\RX(\theta)&=
+\begin{pmatrix}
+\cos(\theta/2)&-\ii\sin(\theta/2)\\
+-\ii\sin(\theta/2)&\cos(\theta/2)
+\end{pmatrix},\\
+\RZZ(\theta)&=\operatorname{diag}
+\left(e^{-\ii\theta/2},e^{+\ii\theta/2},e^{+\ii\theta/2},e^{-\ii\theta/2}\right).
+\end{align}
+The RZZ diagonal is ordered as $00,01,10,11$. Equal bits have ZZ eigenvalue
+$+1$, while different bits have eigenvalue $-1$. The original $x_i x_j$
+penalty is not represented by RZZ alone: its converted Z terms and identity
+offset also contribute. Together they reproduce a penalty only on $11$.
+
+\subsection{The one-qubit phase/mixer example, fully worked}
+After H and $\RZ(-\pi/2)$ the state is
+\begin{equation}
+\ket{\psi_1}=\frac1{\sqrt2}
+\left(e^{\ii\pi/4}\ket0+e^{-\ii\pi/4}\ket1\right).
+\end{equation}
+Both amplitudes still have magnitude $1/\sqrt2$. The next gate is
+\begin{equation}
+\RX(-\pi/2)=\frac1{\sqrt2}
+\begin{pmatrix}1&\ii\\\ii&1\end{pmatrix}.
+\end{equation}
+The resulting amplitudes are
+\begin{align}
+a_0&=\frac{e^{\ii\pi/4}+\ii e^{-\ii\pi/4}}2=e^{\ii\pi/4},\\
+a_1&=\frac{\ii e^{\ii\pi/4}+e^{-\ii\pi/4}}2=0.
+\end{align}
+The final state is $e^{\ii\pi/4}\ket0$, with the same measurement probabilities
+as $\ket0$. The first amplitude reinforces while the second cancels. The
+remaining global phase is unobservable in the final probabilities.
+
+\begin{lstlisting}[language=Python]
+from math import pi
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import Statevector
+
+qc = QuantumCircuit(1)
+qc.h(0)
+print(Statevector.from_instruction(qc).probabilities_dict())
+qc.rz(-pi / 2, 0)
+print(Statevector.from_instruction(qc).probabilities_dict())
+qc.rx(-pi / 2, 0)
+print(Statevector.from_instruction(qc).probabilities_dict())
+\end{lstlisting}
+Floating-point output may show a tiny nonzero value such as $10^{-32}$ instead
+of exact zero. This is numerical roundoff, not a meaningful probability of failure.
+
+\clearpage
+\section{Full numerical audit of the sample objective}\label{app:numeric}
+\subsection{Expanded QUBO coefficients}
+At $P=57.65$, the generated coefficients are
+\begin{align}
+C_0&=115.30,\\
+(L_0,L_1,L_2,L_3,L_4)&=(-35.60,-31.00,-24.65,-20.65,-38.00),\\
+Q_{ij}&=115.30\quad(0\le i<j\le3),\\
+Q_{04}&=57.65.
+\end{align}
+All omitted pairs have coefficient zero. In full,
+\begin{align}
+f(\boldsymbol{x})={}&115.30-35.60x_0-31x_1-24.65x_2-20.65x_3-38x_4\notag\\
+&+115.30(x_0x_1+x_0x_2+x_0x_3+x_1x_2+x_1x_3+x_2x_3)\notag\\
+&+57.65x_0x_4.
+\end{align}
+This expression and Equation~\eqref{eq:sample-qubo} are identical on binary
+inputs. The negative coefficients arise from algebraically expanded penalties.
+
+\subsection{Derive one Z coefficient and one pair coefficient}
+For qubit zero, incident pair coefficients are $Q_{01},Q_{02},Q_{03},Q_{04}$.
+Therefore
+\begin{align}
+h_0&=-\frac{-35.60}{2}
+-\frac{115.30+115.30+115.30+57.65}{4}\notag\\
+&=17.80-100.8875=-83.0875.
+\end{align}
+The A--B conflict yields $J_{04}=Q_{04}/4=14.4125$.
+The identity offset is
+\begin{align}
+C_I&=C_0+\frac12\sum_iL_i+\frac14\sum_{i<j}Q_{ij}\notag\\
+&=115.30-74.95+187.3625=227.7125.
+\end{align}
+
+\subsection{Verify the selected schedule three ways}
+For $\boldsymbol{x}=(0,1,0,0,1)$:
+\begin{enumerate}
+\item From the factored scheduling expression: all penalties vanish and
+      $f=26.65+19.65=46.30$.
+\item From the expanded QUBO: only $x_1,x_4$ are one, with no pair between
+      them, so $f=115.30-31.00-38.00=46.30$.
+\item From Ising signs: $\boldsymbol z=(+1,-1,+1,+1,-1)$. The Z sum is $-167$;
+      the six A--A ZZ products sum to zero; the A--B ZZ term is $-14.4125$.
+      Thus $E_C=-181.4125$ and $f=C_I+E_C=46.30$.
+\end{enumerate}
+All representations assign the same score. This is the invariant tested by
+checking every one of the 32 basis states.
+
+\subsection{General coefficient generation and a matrix convention trap}
+For each vehicle group the compiler adds $P$ to the constant, $-P$ to every
+member's linear coefficient, and $2P$ to every within-group pair. Different-car
+resource conflicts add $P$ to their pairs. Thus new data changes the coefficients
+without a new hand-written equation.
+
+The code stores each pair once, with $i<j$. If instead writing a symmetric
+matrix expression $\boldsymbol{x}^{\mathsf T}M\boldsymbol{x}$, remember that
+$M_{ij}$ and $M_{ji}$ both contribute. For this convention choose
+$M_{ii}=L_i$ and $M_{ij}=M_{ji}=Q_{ij}/2$. Copying upper-triangular coefficients
+into both halves without halving would double every pair cost.
+
+\section{Exercises and common points of confusion}
+Try these before reading Appendix~\ref{app:answers}.
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item A new car C has options $x_5,x_6$. Write its exactly-one penalty. Suppose
+      $x_1$ and $x_5$ are different cars using the same station and slot; write
+      the additional conflict term.
+\item For A, what are the exactly-one penalties when zero, one, two, or three
+      options are selected? Why does ``all bits zero'' fail?
+\item Evaluate the sample objective at $(1,0,0,0,1)$ using $P=57.65$.
+      Which penalties vanish and which does not?
+\item A drives an additional $3\,\mathrm{km}$ at $0.2\,\mathrm{kWh/km}$ with
+      the same battery target. How much extra charging energy is needed?
+\item If $x=1$, what is $z$? Convert $f(x)=8x$ into a Z-form cost operator
+      and verify both bit-state scores.
+\item Expand $P(a+b-1)^2$ using binary identities. Why is the coefficient of
+      $ab$ equal to $2P$, rather than $P$?
+\item After a uniform initial state and only diagonal cost gates, what are
+      the five-qubit measurement probabilities? Why is the mixer needed?
+\item A Z term has coefficient $h=-3$, scale $s=6$, and $\gamma=0.4$.
+      What RZ angle should the code use? What RX angle corresponds to $\beta=0.2$?
+\item Decode Qiskit's displayed string \code{10100} into logical booking order
+      and identify the selected bookings.
+\item Does increasing \code{--shots} change the current exact training objective
+      or the learned angles when all training settings and the seed stay fixed?
+\item Why can a run's best valid sample score be $46.30$ while its expected QUBO
+      score is about $73.88$? What does the invalid mode \code{00001} omit?
+\item If no valid schedule is sampled, can we conclude that the mathematical
+      problem is infeasible? What is different if a car has no individual option?
+\end{enumerate}
+
+\subsection{Interpretations to keep separate}
+\textbf{A variable is a booking, not a vehicle.} Four of the sample bits belong
+to A, but the exactly-one constraint allows only one of those four to be selected.
+
+\textbf{Joint planning is different from simultaneous charging.} The optimizer
+selects a complete schedule for all cars. Resource constraints determine which
+cars may physically charge at the same time.
+
+\textbf{A penalty is a scoring device.} The implemented mixer can visit invalid
+strings. A penalty discourages them but does not make their probability zero.
+The final decoder is still necessary.
+
+\textbf{A cost Hamiltonian is not a measurement of electricity.} Its eigenvalues
+are mathematical scores. Its constant, signs, and units need not resemble battery
+energy or monetary spending.
+
+\textbf{Superposition does not expose all answers at once.} Each measurement
+returns one string. QAOA tries to shape their distribution through interference.
+
+\textbf{Correct encoding does not imply successful optimization.} Tests can
+prove that an objective matches rules on a small instance while the optimizer
+still trains poorly. Evaluate encoding correctness and search quality separately.
+
+\section{Exercise answers}\label{app:answers}
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Add $P(x_5+x_6-1)^2$ for C and $Px_1x_5$ for that resource conflict.
+      The builder generates both from the relevant group and pair data.
+\item The penalties are $P,0,P,4P$. All-zero bits leave cars unassigned;
+      cheap electricity spending alone would otherwise favor serving nobody.
+\item Each car has exactly one booking, so its group penalty is zero. Both
+      use North early, so the conflict penalty is $P$. The score is
+      $22.05+19.65+57.65=99.35$.
+\item Extra consumption is $3(0.2)=0.6\,\mathrm{kWh}$. Arrival energy falls by
+      that amount, so charging energy increases by $0.6\,\mathrm{kWh}$.
+\item $z=-1$. The operator is $4\Id-4\widehat Z$, giving $4-4=0$ on bit zero
+      and $4+4=8$ on bit one.
+\item $P(a+b-1)^2=P-Pa-Pb+2Pab$. The cross term in the square is $2ab$;
+      binary identities reduce $a^2,b^2$ but do not remove that factor of two.
+\item Each probability remains $1/32$. Cost gates multiply each amplitude
+      by a unit-magnitude phase. Mixing combines contributions with different
+      phases and can change the magnitudes, hence probabilities.
+\item The RZ angle is $2\gamma h/s=2(0.4)(-3)/6=-0.4$ radians. The RX angle
+      is $2\beta=0.4$ radians. The two rotations have different axes and roles.
+\item Reverse the displayed string to get $(0,0,1,0,1)$. Select A at South
+      early and B at North early, with booking score $33+19.65=52.65$.
+\item No. In this implementation the training expectation is ideal and
+      independent of final shots. Increasing shots changes the final histogram
+      and may reveal previously unobserved outcomes.
+\item The expectation averages every outcome, including costly invalid ones.
+      The best sample describes one selected valid schedule. \code{00001}
+      selects only $x_0$, giving A a booking but none to B.
+\item No sampled valid outcome does not prove infeasibility. In contrast,
+      an empty option group proves that no complete schedule can serve that
+      vehicle under the current model and supplied inputs.
+\end{enumerate}
+
+\section{Commands, defaults, and reproducibility}
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+CLI setting & Default\\
+\midrule
+\code{--layers} & 2\\
+\code{--iterations} & 160 per restart\\
+\code{--restarts} & 3\\
+\code{--shots} & 4096\\
+\code{--seed} & 7\\
+\code{--penalty} & automatic $U+1$\\
+\code{--show-circuit} & off\\
+\bottomrule
+\end{tabular}
+\end{center}
+The seed fixes initial-angle generation and final simulator sampling for the
+current implementation. Optimizer and simulator changes across library versions
+can change results even with the same seed. The recorded histogram in this guide
+is an observed snapshot, not a permanent expected output specification.
+
+Training requires positive integer layers, shots, evaluation budget, and
+restarts; the budget must be at least $2p+2$. The seed must be a nonnegative
+integer and a custom penalty must be positive and finite. Larger scenarios
+increase qubit requirements; a small number of vehicles does not by itself
+guarantee a small quantum circuit if each vehicle has many possible bookings.
+
+For experiments, record a row containing
+\begin{equation*}
+\begin{aligned}
+\text{settings}&=(p,\ \text{budget},\ \text{restarts},\ N,\ \text{seed},\ P),\\
+\text{results}&=(\widehat p_{\mathrm{valid}},\ \text{best sample score},\ F_{\mathrm{best}},\ \text{runtime}).
+\end{aligned}
+\end{equation*}
+Keep electricity bill and waiting separately as well. If you change the waiting
+weight, the definition of the score changes; scores from different weights are
+not directly comparable as if they measured the same preference.
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{References}
+\begin{thebibliography}{9}
+\raggedright
+\bibitem{qaoa}
+IBM Quantum Documentation, \emph{Quantum approximate optimization algorithm}.
+\url{https://quantum.cloud.ibm.com/docs/en/tutorials/quantum-approximate-optimization-algorithm}.
+Reference for the QUBO-to-Hamiltonian and hybrid QAOA workflow.
+
+\bibitem{rz}
+IBM Quantum Documentation, \emph{RZGate}.
+\url{https://quantum.cloud.ibm.com/docs/en/api/qiskit/qiskit.circuit.library.RZGate}.
+Reference for the rotation convention $\RZ(\theta)=e^{-\ii\theta Z/2}$.
+
+\bibitem{rzz}
+IBM Quantum Documentation, \emph{RZZGate}.
+\url{https://quantum.cloud.ibm.com/docs/en/api/qiskit/qiskit.circuit.library.RZZGate}.
+Reference for the two-qubit ZZ rotation convention and diagonal form.
+
+\bibitem{aer}
+Qiskit Aer Documentation, \emph{EstimatorV2}.
+\url{https://qiskit.github.io/qiskit-aer/stubs/qiskit_aer.primitives.EstimatorV2.html}.
+Reference for the simulator primitive used during training.
+
+\bibitem{cobyla}
+SciPy Documentation, \emph{minimize(method='COBYLA')}.
+\url{https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyla.html}.
+Reference for the optimizer options and evaluation budget.
+\end{thebibliography}

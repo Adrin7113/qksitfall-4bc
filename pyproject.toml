@@ -1,0 +1,15 @@
+[project]
+name = "qksitfall"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.15"
+dependencies = [
+    "jupyter>=1.1.1",
+    "matplotlib>=3.11.2",
+    "pylatexenc>=2.11",
+    "qiskit>=2.6.1",
+    "qiskit-aer>=0.18.2",
+    "qiskit-ibm-runtime>=0.51.0",
+    "scipy>=1.18.1",
+]

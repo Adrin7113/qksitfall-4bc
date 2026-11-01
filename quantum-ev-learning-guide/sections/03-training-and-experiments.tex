@@ -1,0 +1,279 @@
+\section{Checkpoint 4: train the circuit angles}\label{sec:training}
+\subsection{What the optimizer minimizes}
+For angles $\boldsymbol\beta=(\beta_1,\ldots,\beta_p)$ and
+$\boldsymbol\gamma=(\gamma_1,\ldots,\gamma_p)$, let
+\begin{equation}
+p_{\boldsymbol\beta,\boldsymbol\gamma}(\boldsymbol{x})
+=\left|\langle\boldsymbol{x}\mid
+\psi_p(\boldsymbol\beta,\boldsymbol\gamma)\rangle\right|^2.
+\end{equation}
+The bra $\bra{\boldsymbol{x}}$ is the conjugate transpose of the corresponding
+ket. The inner product extracts that outcome's amplitude. Squaring its magnitude
+gives the probability. Appendix~\ref{app:math} explains the notation in detail.
+
+The expected QUBO score is the probability-weighted average
+\begin{equation}\label{eq:expected-cost}
+F(\boldsymbol\beta,\boldsymbol\gamma)
+=\sum_{\boldsymbol{x}}p_{\boldsymbol\beta,\boldsymbol\gamma}(\boldsymbol{x})
+f(\boldsymbol{x})
+=s\bra{\psi_p}\widetilde H_C\ket{\psi_p}+C_I.
+\end{equation}
+The sum includes invalid booking strings and their penalties. A circuit can
+occasionally produce an excellent valid schedule while still having a poor
+average because many other measurements would be invalid.
+
+The implementation passes the normalized expectation to COBYLA:
+\begin{lstlisting}[language=Python]
+pub = (circuit, normalized_cost, angles)
+energy = float(
+    estimator.run([pub], precision=0).result()[0].data.evs
+)
+expected_score = energy * scale + offset
+\end{lstlisting}
+\code{precision=0} asks the local Aer estimator for the ideal expectation,
+computed to numerical precision without finite-shot sampling noise\cite{aer}.
+The quantum state is still simulated on a classical computer. Final measurements
+are sampled separately; \code{--shots} does not change the training precision.
+
+\subsection{What COBYLA changes}
+COBYLA is a derivative-free classical numerical optimizer\cite{cobyla}. It
+proposes circuit angles, receives an expectation, and proposes new angles.
+It does not choose booking bits directly and does not call an exhaustive
+scheduling solver in the quantum path.
+\begin{equation*}
+\text{angles}\ \longrightarrow\ \text{Aer circuit evaluation}
+\ \longrightarrow\ \text{expectation}\ \longrightarrow\ \text{new angles}.
+\end{equation*}
+The implementation uses \code{maxiter} as an objective-evaluation budget per
+restart, initial step size \code{rhobeg=0.5}, and trust-region tolerance
+\code{tol=1e-4}. The CLI requires at least $2p+2$ evaluations. Convergence may
+occur before the budget is exhausted; no global optimum is certified.
+
+Different restarts use different initial angles. The seed initializes a local
+random generator, and the best parameter vector actually evaluated across all
+restarts is retained. With $p=2$, Qiskit's parameter order for this circuit is
+\begin{equation}
+(\beta_1,\beta_2,\gamma_1,\gamma_2).
+\end{equation}
+In Python these are \code{beta[0]}, \code{beta[1]}, \code{gamma[0]}, and
+\code{gamma[1]}. This is the binding order, not the execution order of the gates.
+Use the returned \code{parameter_order} instead of guessing if the circuit changes.
+
+\subsection{A concrete training trace}
+For the current code and default seed, the three restarts used 92, 146, and 78
+evaluations respectively, for 316 total. The best expected score observed was
+approximately
+\begin{equation}
+F_{\mathrm{best}}\approx73.88034.
+\end{equation}
+This is not the final selected schedule's score of $46.30$. Equation~\eqref{eq:expected-cost}
+explains the difference: the expectation averages the whole distribution.
+The pure uniform starting state would have mean score $C_I=227.7125$, because
+all nonidentity Z and ZZ expectations vanish. A restart's first evaluated
+angles are random, nonzero angles; its initial expectation need not equal that
+uniform-state mean.
+
+\section{Checkpoint 5: measure, decode, and check}
+\subsection{Sampling the trained circuit}
+After binding the best angles, append measurements and execute the circuit:
+\begin{lstlisting}[language=Python]
+measured = circuit.assign_parameters(best_angles)
+measured.measure_all()
+counts = simulator.run(
+    measured, shots=4096, seed_simulator=7
+).result().get_counts()
+\end{lstlisting}
+Each dictionary entry is a displayed bit string and the number of shots that
+produced it. The entries count circuit outcomes, not optimizer evaluations.
+
+\subsection{Qiskit bit order}
+Logical booking vectors in this guide use $(x_0,x_1,x_2,x_3,x_4)$. Qiskit displays
+the classical bits in reverse index order:
+\begin{equation}
+\text{displayed string}=x_4x_3x_2x_1x_0.
+\end{equation}
+Thus the displayed string \code{10010} corresponds to
+\begin{equation}
+(x_0,x_1,x_2,x_3,x_4)=(0,1,0,0,1).
+\end{equation}
+The decoder explicitly reverses the string:
+\begin{lstlisting}[language=Python]
+bits = [int(bit) for bit in bitstring[::-1]]
+\end{lstlisting}
+This matters for every mapping from measurement to a real booking. It is not
+just a cosmetic choice in how a histogram is printed.
+
+\subsection{Validity and sampling metrics}
+The function \code{decode_bits()} checks the selected bookings independently of
+the penalty coefficients: exactly one booking per car and no shared station/slot.
+Let $N$ be the final shot count, $n_{\boldsymbol{x}}$ the count for a string, and
+$\mathcal F$ the set of feasible strings. The empirical valid fraction is
+\begin{equation}\label{eq:valid-rate}
+\widehat p_{\mathrm{valid}}=\frac1N
+\sum_{\boldsymbol{x}\in\mathcal F}n_{\boldsymbol{x}}.
+\end{equation}
+This counts shots, not just distinct valid strings. A valid string observed
+1,000 times contributes 1,000 to the numerator.
+
+\begin{center}
+\begin{tabular}{lrrl}
+\toprule
+Displayed string & Shots & QUBO score & Interpretation\\
+\midrule
+\code{00001} & 719 & 79.70 & A only; B unassigned\\
+\code{10010} & 663 & 46.30 & A North late; B North early\\
+\code{10100} & 629 & 52.65 & A South early; B North early\\
+\code{11000} & 629 & 56.65 & A South late; B North early\\
+\code{10001} & 250 & 99.35 & Both cars at North early\\
+\bottomrule
+\end{tabular}
+\end{center}
+These are selected entries from the default run, not the complete histogram.
+The most frequent outcome was invalid. The three valid strings contributed
+$663+629+629=1921$ shots, giving
+\begin{equation}
+\widehat p_{\mathrm{valid}}=\frac{1921}{4096}\approx0.468994=46.90\%.
+\end{equation}
+For reference, the uniform distribution has only three feasible strings among
+32 and hence valid probability $3/32=9.375\%$. This comparison evaluates the
+distribution; it is not evidence of computational speedup over classical solvers.
+
+\section{Checkpoint 6: choose a sampled schedule and report it}
+The program selects the lowest booking score among feasible strings that were
+actually measured. It does not manufacture an unobserved string, repair an
+invalid sample, or invoke the reference exact solver as a fallback.
+
+For the default run the selected logical vector was $(0,1,0,0,1)$:
+\begin{align*}
+\text{A}&:\ \text{North, reserved 09:00--10:00},\\
+\text{B}&:\ \text{North, reserved 08:00--09:00},\\
+\text{electricity bill}&=10.40+18.40=\text{Rs }28.80,\\
+\text{waiting}&=65+5=70\text{ minutes},\\
+\text{schedule score}&=28.80+0.25(70)=46.30.
+\end{align*}
+Actual charging finishes approximately at 09:56:44 for A and 08:50:11 for B.
+Both ports remain reserved until the end of their assigned slots.
+
+Successful results use \code{status="feasible"}, not \code{"optimal"}.
+If no feasible string is measured, the result is \code{no_feasible_sample};
+this does not prove that no feasible string exists. If preprocessing finds a
+vehicle with no individual option, the CLI can report that definite obstruction
+before building a circuit. These are different kinds of failure.
+
+The 33 tests in the current snapshot cover physical feasibility, QUBO penalties,
+all 32 basis-state energies, actual cost-gate phases, bit ordering, sampled-only
+selection, small Aer runs, and global conflict cases. The tests may enumerate
+tiny state spaces to verify correctness; the production quantum solver does not
+use those enumerations to select a schedule.
+
+\section{Experiments: what to improve and how to measure it}\label{sec:experiments}
+Change one setting at a time and compare several seeds. Record the best feasible
+sample score, valid fraction, best expected score, evaluation count, and runtime.
+If a run fails to sample any valid schedule, keep that failure in the results.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lX X@{}}
+\toprule
+Setting & Changes & Interpretation\\
+\midrule
+\code{--layers} & Number $p$ of cost/mixer pairs & More gates and $2p$ angles; more expressiveness does not guarantee better training.\\
+\code{--iterations} & Evaluation budget per restart & More opportunities to optimize; convergence may occur earlier.\\
+\code{--restarts} & Number of angle initializations & Helps explore different local solutions; increases total work.\\
+\code{--shots} & Final measurement repetitions & Changes sampling coverage, not ideal training precision or angles.\\
+\code{--seed} & Initialization and final sampling randomness & Tests sensitivity to favorable random choices.\\
+\code{--penalty} & Constraint coefficient $P$ & Alters feasibility emphasis relative to operating costs.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{lstlisting}
+# Inspect the simplest cost/mixer circuit.
+.venv/bin/python main.py --layers 1 --show-circuit
+
+# Increase expressiveness and training effort together.
+.venv/bin/python main.py --layers 3 --iterations 300 --restarts 5
+
+# Increase final sampling coverage only.
+.venv/bin/python main.py --shots 16384
+
+# Repeat with a different initialization and sampling seed.
+.venv/bin/python main.py --seed 21
+\end{lstlisting}
+
+The returned \code{history}, \code{angles}, and \code{parameter_order} make
+learning-curve plots and angle comparisons possible. A later extension could
+change the mixer, initialize from a useful state, simulate device noise, or use
+finite-precision expectation estimates. These are experiments to implement;
+they are not features already enabled by the current CLI.
+
+Larger shot counts improve the probability of observing an existing rare useful
+outcome. If its probability is $p_\star$ and shots are independent, the chance
+of seeing it at least once in $N$ shots is
+\begin{equation}
+1-(1-p_\star)^N.
+\end{equation}
+Shots cannot reveal an outcome with exactly zero probability. The validity
+fraction and training expectation tell us more than the best observed score alone.
+
+\section{Boundaries, hardware access, and the browser explainer}
+\subsection{What the current physical model assumes}
+Each car needs one uninterrupted session within one nonoverlapping hour slot.
+Each station has one port. Consumption and charging power are constant, charging
+efficiency is 100\%, and the driver departs as soon as available. Actual charging
+completion determines deadline compliance, but the reservation blocks the full
+slot. Waiting is the time at the station before the slot starts; driving has no
+separate objective penalty. Reserve is checked on arrival, not on a later onward
+journey. These choices simplify the application and must be revisited when the
+product requirements change.
+
+\subsection{Simulation versus a physical quantum processor}
+Qiskit builds the circuits; Aer simulates them locally. The IBM API key is not
+used by this program. A physical IBM processor would require a separate Runtime
+integration, backend selection, compilation to supported gates/connectivity,
+and a training/measurement workflow compatible with that backend. An API key
+alone does not change \code{AerSimulator()} into hardware execution.
+
+An ideal statevector stores $2^n$ complex amplitudes. A compact Pauli operator
+representation does not remove that simulator memory cost. The current
+single-session allocation model is also approachable by strong classical
+assignment methods. This project demonstrates a quantum optimization workflow;
+it makes no claim that QAOA is necessary for this model or faster than classical
+computing.
+
+\subsection{The interactive parking illustration}
+The separate browser illustration in \code{web/parking-anatomy/} shows the same
+parking/charging example, waiting preferences, and a five-bit booking inspector.
+Build it with
+\begin{lstlisting}
+node web/parking-anatomy/build.mjs
+\end{lstlisting}
+Then open \code{web/parking-anatomy/dist/index.html}. Its build exports sample
+bookings from Python and can use a saved fixture. The browser computes 32
+illustrative QUBO energies classically. It does not run QAOA or connect to IBM;
+its exported baseline uses the reference classical solver. Run \code{main.py}
+to execute the actual Qiskit circuit. The browser's own README contains its
+preview instructions.
+
+\subsection{Code-to-concept map}
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}lX@{}}
+\toprule
+Function & Responsibility\\
+\midrule
+\code{sample_scenario} & Input dictionaries for cars, stations, slots, and travel.\\
+\code{generate_options} & Physical feasibility, journey quantities, and booking scores.\\
+\code{build_qubo} & Data-driven variables, exactly-one groups, and conflict penalties.\\
+\code{qubo_value} & Evaluate a supplied bit vector; no optimization.\\
+\code{qubo_to_ising} & Collect Z/ZZ coefficients, offset, and normalization.\\
+\code{build_qaoa_circuit} & Explicit H, RZ, RZZ, and RX operations.\\
+\code{solve_qaoa} & Train angles on Aer and measure the final circuit.\\
+\code{decode_bits} & Independently check selected booking constraints.\\
+\code{summarize_counts} & Reverse display order and select a feasible measured result.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+The main quantum implementation is \code{src/quantum_scheduler.py}; ordinary
+physical calculations are in \code{src/ev_scheduler.py}. The CLI is in
+\code{main.py}.
+
+\clearpage
